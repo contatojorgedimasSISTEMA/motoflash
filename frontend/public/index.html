@@ -356,23 +356,41 @@ function telaLoginRest() {
 
 function telaCadastroRest() {
   return `
-  ${hdr("Cadastro do Restaurante", "login_rest")}
+  ${hdr("Novo Restaurante", "inicio")}
   <div class="screen sec">
-    <div class="info-box">Plano mensal: <strong>R$ 19,90</strong> — funciona em qualquer cidade</div>
-    ${campo("Nome do estabelecimento","cr-nome","text","Burguer do Ze, Bar do Joao...")}
-    ${campo("Email","cr-email","email","email@seurestaurante.com")}
-    ${campo("Senha","cr-senha","password","Minimo 6 caracteres")}
-    ${campo("Telefone / WhatsApp","cr-tel","text","(12) 99999-0000")}
-    ${campo("Endereco completo","cr-end","text","Rua, numero - Bairro")}
-    ${campo("Cidade","cr-cid","text","Ilhabela, Caraguatatuba, SJC...")}
-    ${campo("Chave PIX","cr-pix","text","CPF, telefone ou email")}
-    <div class="field"><span class="lbl">Categoria</span>
-    <select id="cr-cat"><option>Lanches</option><option>Pizza</option><option>Japonesa</option><option>Brasileira</option><option>Bar</option><option>Padaria</option><option>Outros</option></select></div>
-    <button class="btn btn-acc" id="btn-cad-rest-ok" onclick="cadastrarRestaurante()">
-      ${S.loading ? "Cadastrando..." : "Finalizar Cadastro"}
+    <div class="info-box">Preencha os dados abaixo para cadastrar seu estabelecimento</div>
+    <div class="field">
+      <span class="lbl">Nome do estabelecimento *</span>
+      <input type="text" id="cr-nome" placeholder="Ex: Bar do Ze, Pizzaria Napoli" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Seu WhatsApp *</span>
+      <input type="tel" id="cr-tel" placeholder="(12) 99999-0000" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Cidade *</span>
+      <input type="text" id="cr-cid" placeholder="Ex: Ilhabela" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Endereco completo *</span>
+      <input type="text" id="cr-end" placeholder="Rua, numero - Bairro" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Chave PIX (para receber pagamentos)</span>
+      <input type="text" id="cr-pix" placeholder="CPF, telefone ou email" autocomplete="off">
+    </div>
+    <div class="field">
+      <span class="lbl">Categoria</span>
+      <select id="cr-cat">
+        <option>Lanches</option><option>Pizza</option><option>Japonesa</option>
+        <option>Brasileira</option><option>Bar</option><option>Padaria</option><option>Outros</option>
+      </select>
+    </div>
+    <div id="cr-erro" style="display:none;background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px"></div>
+    <button class="btn btn-acc" style="margin-top:16px;font-size:16px" onclick="window.fazerCadastroRest()">
+      Cadastrar Restaurante
     </button>
-    ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Conectando ao servidor...</div>' : ""}
-    ${S.erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">${S.erro}</div>` : ""}
+    <button class="btn btn-ghost" onclick="set({tela:'inicio'})">Voltar</button>
   </div>`;
 }
 
@@ -793,6 +811,36 @@ function bindAll() {
 // ─── RENDER FULL COM MODAL ─────────────────────────────────────────────────────
 const origRender = render;
 window.set = set;
+
+window.fazerCadastroRest = function() {
+  const nome = document.getElementById("cr-nome")?.value?.trim();
+  const tel = document.getElementById("cr-tel")?.value?.trim();
+  const cidade = document.getElementById("cr-cid")?.value?.trim();
+  const endereco = document.getElementById("cr-end")?.value?.trim();
+  const pix = document.getElementById("cr-pix")?.value?.trim();
+  const categoria = document.getElementById("cr-cat")?.value;
+  const erroEl = document.getElementById("cr-erro");
+
+  if (!nome) { erroEl.textContent="Coloque o nome do estabelecimento"; erroEl.style.display="block"; return; }
+  if (!tel) { erroEl.textContent="Coloque seu WhatsApp"; erroEl.style.display="block"; return; }
+  if (!cidade) { erroEl.textContent="Coloque a cidade"; erroEl.style.display="block"; return; }
+
+  erroEl.style.display="none";
+
+  const user = {
+    id: "r_" + Date.now(),
+    nome, telefone: tel, cidade, endereco: endereco||"", pix: pix||"", categoria,
+    plano_ativo: false, tipo: "restaurante",
+    token: "local_" + Date.now()
+  };
+
+  localStorage.setItem("mf_token", user.token);
+  localStorage.setItem("mf_user", JSON.stringify(user));
+  localStorage.setItem("mf_tipo", "restaurante");
+
+  set({ token: user.token, user, tipo: "restaurante", tela: "painel_rest", erro: null });
+  toast("Cadastro realizado! Bem-vindo ao MotoFlash.");
+};
 
 window.cadastrarRestaurante = async function() {
   const nome = document.getElementById("cr-nome")?.value?.trim();
