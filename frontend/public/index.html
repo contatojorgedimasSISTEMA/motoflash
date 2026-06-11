@@ -282,6 +282,7 @@ function pgRestNova() {
 
 function pgRestConta() {
   const u = S.user || {};
+  const venc = u.plano_vencimento ? new Date(u.plano_vencimento).toLocaleDateString("pt-BR") : "";
   return `<div class="card">
     <div class="row" style="gap:12px;margin-bottom:14px">
       <div class="avatar" style="background:var(--acc2)">🍔</div>
@@ -290,11 +291,20 @@ function pgRestConta() {
     <div class="sep" style="margin:10px 0"></div>
     <div class="row" style="justify-content:space-between;padding:7px 0">
       <span class="muted small">Plano</span>
-      <span class="badge" style="background:${u.plano_ativo?"var(--grn2)":"var(--acc2)"};color:${u.plano_ativo?"var(--grn)":"var(--acc)"}">${u.plano_ativo ? "Ativo R$19,90/mes" : "Inativo"}</span>
+      <span class="badge" style="background:${u.plano_ativo?"var(--grn2)":"var(--acc2)"};color:${u.plano_ativo?"var(--grn)":"var(--acc)"}">${u.plano_ativo?"Ativo":"Inativo"}</span>
     </div>
-    ${!u.plano_ativo ? `<button class="btn btn-acc" id="btn-ativar-plano">Ativar plano R$ 19,90/mes</button>` : ""}
+    ${u.plano_ativo && venc ? `<div class="row" style="justify-content:space-between;padding:7px 0"><span class="muted small">Vencimento</span><span class="small bold">${venc}</span></div>` : ""}
+    <div class="row" style="justify-content:space-between;padding:7px 0"><span class="muted small">Email</span><span class="small bold">${u.email||""}</span></div>
+    <div class="row" style="justify-content:space-between;padding:7px 0"><span class="muted small">PIX</span><span class="small bold">${u.pix||"—"}</span></div>
   </div>
-  <button class="btn btn-ghost" id="btn-sair">Sair da conta</button>`;
+  ${!u.plano_ativo ? `
+  <div class="card" style="border-color:var(--acc)">
+    <div class="bold" style="margin-bottom:8px">Ativar plano — R$ 19,90/mes</div>
+    <div class="muted small" style="margin-bottom:12px;line-height:1.6">Para publicar entregas voce precisa ter o plano ativo. Pague R$ 19,90 via PIX e seu acesso sera liberado.</div>
+    <button class="btn btn-acc" id="btn-gerar-pix-mensalidade">Gerar PIX R$ 19,90</button>
+  </div>
+  <div id="pix-mensalidade-box" style="display:none"></div>` : ""}
+  <button class="btn btn-ghost" id="btn-sair" style="margin-top:8px">Sair da conta</button>`;
 }
 
 function login_moto() {
@@ -781,6 +791,52 @@ function bind() {
       localStorage.setItem("mf_user",JSON.stringify(u));
       set({user:u}); toast("Plano ativado!");
     } catch(e) { toast(e.message,"#EF4444"); }
+  });
+
+  on("btn-gerar-pix-mensalidade", async () => {
+    const btn = document.getElementById("btn-gerar-pix-mensalidade");
+    if (btn) { btn.textContent="Gerando PIX..."; btn.disabled=true; }
+    try {
+      const data = await api("POST","/restaurante/gerar-pix-mensalidade",{});
+      const box = document.getElementById("pix-mensalidade-box");
+      if (box) {
+        box.style.display = "block";
+        if (data.simulado) {
+          box.innerHTML = `<div class="card" style="border-color:var(--grn);margin-top:0">
+            <div class="bold" style="margin-bottom:10px;color:var(--grn)">PIX Mensalidade</div>
+            <div class="muted small" style="margin-bottom:8px">Chave PIX</div>
+            <div style="font-weight:700;font-size:15px;color:var(--acc);margin-bottom:12px">${data.chave_pix}</div>
+            <div style="font-size:26px;font-weight:800;color:var(--grn);text-align:center;margin-bottom:12px">R$ 19,90</div>
+            <div class="muted small" style="margin-bottom:12px;line-height:1.6">${data.mensagem}</div>
+            <button class="btn btn-grn" id="btn-confirmar-pagto">Ja paguei — ativar acesso</button>
+          </div>`;
+        } else if (data.copia_cola) {
+          box.innerHTML = `<div class="card" style="border-color:var(--grn);margin-top:0">
+            <div class="bold" style="margin-bottom:10px;color:var(--grn)">PIX Gerado</div>
+            <div style="font-size:26px;font-weight:800;color:var(--grn);text-align:center;margin-bottom:12px">R$ 19,90</div>
+            <div class="muted small" style="margin-bottom:6px">Copia e cola PIX:</div>
+            <div style="background:var(--surf);border-radius:8px;padding:10px;font-size:11px;word-break:break-all;margin-bottom:12px;color:var(--txt)">${data.copia_cola}</div>
+            <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('${data.copia_cola}').then(()=>toast('Copiado!'))">Copiar codigo PIX</button>
+            <div class="muted small" style="margin-top:10px;text-align:center">Seu acesso sera liberado automaticamente apos o pagamento</div>
+          </div>`;
+        }
+        // Bind botao confirmar
+        setTimeout(() => {
+          const btnConf = document.getElementById("btn-confirmar-pagto");
+          if (btnConf) btnConf.addEventListener("click", async () => {
+            try {
+              await api("POST","/restaurante/ativar-plano",{});
+              const u={...S.user,plano_ativo:true};
+              localStorage.setItem("mf_user",JSON.stringify(u));
+              set({user:u}); toast("Plano ativado! Bem-vindo ao MotoFlash.");
+            } catch(e) { toast(e.message,"#EF4444"); }
+          });
+        }, 100);
+      }
+    } catch(e) {
+      if (btn) { btn.textContent="Gerar PIX R$ 19,90"; btn.disabled=false; }
+      toast(e.message,"#EF4444");
+    }
   });
 
   on("btn-sair", () => {
