@@ -159,11 +159,22 @@ app.post("/api/entrega", authMiddleware, (req, res) => {
 
 app.get("/api/entregas/disponiveis", authMiddleware, (req, res) => {
   const cidade = req.user.cidade;
+  // Busca entregas da mesma cidade (case insensitive) OU todas se motoboy
   const entregas = db.prepare(`
     SELECT e.*, r.nome as restaurante_nome, r.endereco as restaurante_endereco, r.lat as rest_lat, r.lng as rest_lng
     FROM entregas e JOIN restaurantes r ON e.restaurante_id=r.id
-    WHERE e.status='disponivel' AND e.cidade=?
+    WHERE e.status='disponivel'
+    AND (lower(trim(e.cidade)) = lower(trim(?)) OR lower(trim(e.cidade)) = lower(trim(r.cidade)))
     ORDER BY e.created_at DESC`).all(cidade);
+  // Se nao achar na cidade, retorna todas disponiveis
+  if (entregas.length === 0) {
+    const todas = db.prepare(`
+      SELECT e.*, r.nome as restaurante_nome, r.endereco as restaurante_endereco, r.lat as rest_lat, r.lng as rest_lng
+      FROM entregas e JOIN restaurantes r ON e.restaurante_id=r.id
+      WHERE e.status='disponivel'
+      ORDER BY e.created_at DESC`).all();
+    return res.json(todas);
+  }
   res.json(entregas);
 });
 
@@ -263,8 +274,8 @@ app.get("/api/admin/dashboard", (req, res) => {
   const entregas = db.prepare("SELECT COUNT(*) as total, SUM(tarifa_app) as receita_app FROM entregas WHERE status='entregue'").get();
   const mensalidades = (restaurantes.ativos||0) * MENSALIDADE;
   const cidades = db.prepare("SELECT cidade, COUNT(*) as restaurantes, SUM(plano_ativo) as ativos FROM restaurantes GROUP BY cidade ORDER BY restaurantes DESC").all();
-  const rest_lista = db.prepare("SELECT id,nome,cidade,email,plano_ativo,plano_vencimento,created_at FROM restaurantes ORDER BY created_at DESC LIMIT 50").all();
-  const moto_lista = db.prepare("SELECT id,nome,cidade,corridas_total,ganhos_total,status FROM motoboys ORDER BY corridas_total DESC LIMIT 50").all();
+  const rest_lista = db.prepare("SELECT id,nome,cidade,email,plano_ativo,plano_vencimento,created_at FROM restaurantes ORDER BY created_at DESC").all();
+  const moto_lista = db.prepare("SELECT id,nome,cidade,corridas_total,ganhos_total,status FROM motoboys ORDER BY created_at DESC").all();
   const corridas_hoje = db.prepare("SELECT COUNT(*) as total FROM entregas WHERE date(created_at)=date('now')").get();
   res.json({
     resumo: {
