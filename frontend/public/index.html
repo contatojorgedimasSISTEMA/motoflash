@@ -267,6 +267,22 @@ function pgRestPedidos() {
 }
 
 function pgRestNova() {
+  // Bloquear se plano inativo
+  if (!S.user?.plano_ativo) {
+    return `<div class="card" style="border-color:var(--acc);text-align:center;padding:28px">
+      <div style="font-size:40px;margin-bottom:12px">🔒</div>
+      <div class="bold" style="font-size:16px;margin-bottom:8px">Plano inativo</div>
+      <div class="muted small" style="line-height:1.7;margin-bottom:16px">
+        Para publicar entregas voce precisa ter o plano ativo.<br>
+        O plano custa apenas <strong style="color:var(--acc)">R$ 19,90 por mes</strong><br>
+        e da acesso ilimitado a plataforma.
+      </div>
+      <button class="btn btn-acc" style="max-width:260px;margin:0 auto" onclick="set({pagRest:'conta'})">
+        💳 Ativar plano agora
+      </button>
+      <div class="muted small" style="margin-top:12px">Apos o pagamento seu acesso e liberado imediatamente</div>
+    </div>`;
+  }
   return `<div class="bold" style="margin-bottom:12px">Nova entrega</div>
     ${campo("Nome do cliente *", "ne-cli", "text", "Nome do cliente")}
     ${campo("Endereco de entrega *", "ne-end", "text", "Rua, numero - Bairro")}
