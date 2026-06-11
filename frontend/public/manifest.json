@@ -1,0 +1,19 @@
+{
+  "name": "MotoFlash - Entregas",
+  "short_name": "MotoFlash",
+  "description": "Plataforma de entregas para restaurantes e motoboys",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0D0D",
+  "theme_color": "#FF6B00",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["food", "lifestyle", "navigation"],
+  "lang": "pt-BR",
+  "screenshots": [
+    { "src": "/screenshots/motoboy.png", "sizes": "390x844", "type": "image/png", "form_factor": "narrow" }
+  ]
+}
