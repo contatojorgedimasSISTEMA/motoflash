@@ -270,10 +270,12 @@ function pgRestNova() {
   return `<div class="bold" style="margin-bottom:12px">Nova entrega</div>
     ${campo("Nome do cliente *", "ne-cli", "text", "Nome do cliente")}
     ${campo("Endereco de entrega *", "ne-end", "text", "Rua, numero - Bairro")}
-    ${campo("Distancia estimada (km) *", "ne-dist", "number", "Ex: 2.5")}
+    <button class="btn" style="background:var(--surf);color:var(--acc);border:1px solid var(--acc);margin-bottom:8px" onclick="calcDistAuto()">
+      📍 Calcular distancia automaticamente
+    </button>
+    <div id="ne-preview" style="display:none;background:var(--surf);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--bord)"></div>
     ${campo("Valor do pedido (R$) *", "ne-val", "number", "Ex: 45.00")}
-    <div id="ne-preview" style="display:none" class="card" style="background:var(--surf);margin-bottom:4px"></div>
-    <button class="btn" style="background:var(--surf);color:var(--acc);border:1px solid var(--acc)" onclick="calcPreview()">Calcular tarifa</button>
+    <input type="hidden" id="ne-dist" value="2">
     <div class="erro-box" id="ne-erro"></div>
     <button class="btn btn-acc" id="btn-add-entrega">${S.loading ? "Publicando..." : "Publicar para motoboys"}</button>`;
 }
@@ -442,6 +444,79 @@ function pixModalHTML() {
 }
 
 // ── ACOES ─────────────────────────────────────────────────────────────────────
+async function calcDistAuto() {
+  const endereco = document.getElementById("ne-end")?.value?.trim();
+  const cidade = S.user?.cidade || "";
+  if (!endereco) { mostrarErro("ne-erro","Preencha o endereco de entrega primeiro"); return; }
+
+  const prev = document.getElementById("ne-preview");
+  if (prev) { prev.style.display="block"; prev.innerHTML=`<div class="muted small" style="text-align:center">Calculando distancia...</div>`; }
+
+  try {
+    // Geocodificar endereco do cliente
+    const endCompleto = encodeURIComponent(endereco + ", " + cidade + ", Brasil");
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${endCompleto}&format=json&limit=1`, {
+      headers: {"User-Agent": "MotoFlash/1.0"}
+    });
+    const dados = await r.json();
+
+    let km = 2; // fallback
+
+    if (dados && dados[0]) {
+      const clienteLat = parseFloat(dados[0].lat);
+      const clienteLng = parseFloat(dados[0].lon);
+
+      // Pegar coordenadas do restaurante (ou usar centro da cidade)
+      const restLat = S.user?.lat || clienteLat + 0.01;
+      const restLng = S.user?.lng || clienteLng + 0.01;
+
+      km = calcDist(restLat, restLng, clienteLat, clienteLng);
+      if (km < 0.5) km = 0.5;
+      if (km > 50) km = 50;
+    }
+
+    const distInput = document.getElementById("ne-dist");
+    if (distInput) distInput.value = km.toFixed(1);
+
+    const t = calcTarifa(km);
+    if (prev) {
+      prev.innerHTML = `
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <span class="muted small">Distancia calculada</span>
+          <span class="bold acc">${km.toFixed(1)} km</span>
+        </div>
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <span class="muted small">Tarifa total</span>
+          <span class="bold">R$ ${t.toFixed(2)}</span>
+        </div>
+        <div class="row" style="justify-content:space-between;margin-bottom:6px">
+          <span class="muted small">Motoboy recebe (80%)</span>
+          <span class="bold green">R$ ${(t*0.8).toFixed(2)}</span>
+        </div>
+        <div class="row" style="justify-content:space-between">
+          <span class="muted small">App retém (20%)</span>
+          <span class="bold">R$ ${(t*0.2).toFixed(2)}</span>
+        </div>`;
+    }
+    // Limpar erro se existia
+    const erroEl = document.getElementById("ne-erro");
+    if (erroEl) erroEl.style.display = "none";
+
+  } catch(e) {
+    // Se falhar geocoding usa distancia padrao
+    const km = 2;
+    const distInput = document.getElementById("ne-dist");
+    if (distInput) distInput.value = km;
+    const t = calcTarifa(km);
+    if (prev) {
+      prev.innerHTML = `
+        <div class="muted small" style="margin-bottom:8px">Endereco nao localizado — usando distancia padrao</div>
+        <div class="row" style="justify-content:space-between"><span class="muted small">Distancia estimada</span><span class="bold acc">2.0 km</span></div>
+        <div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted small">Motoboy recebe</span><span class="bold green">R$ ${(t*0.8).toFixed(2)}</span></div>`;
+    }
+  }
+}
+
 function calcPreview() {
   const km = parseFloat(document.getElementById("ne-dist")?.value) || 2;
   const t = calcTarifa(km);
@@ -672,14 +747,25 @@ function bind() {
     const cn=document.getElementById("ne-cli")?.value?.trim();
     const ce=document.getElementById("ne-end")?.value?.trim();
     const dist=parseFloat(document.getElementById("ne-dist")?.value)||2;
-    const val=parseFloat(document.getElementById("ne-val")?.value)||30;
+    const val=parseFloat(document.getElementById("ne-val")?.value)||0;
     if (!cn) { mostrarErro("ne-erro","Preencha o nome do cliente"); return; }
     if (!ce) { mostrarErro("ne-erro","Preencha o endereco de entrega"); return; }
+    if (!val || val <= 0) { mostrarErro("ne-erro","Preencha o valor do pedido"); return; }
     S.loading=true; render();
     try {
+      // Tentar geocodificar automaticamente se nao foi feito ainda
+      let clienteLat = -23.55+Math.random()*0.04;
+      let clienteLng = -45.35+Math.random()*0.04;
+      try {
+        const cidade = S.user?.cidade || "";
+        const endCompleto = encodeURIComponent(ce + ", " + cidade + ", Brasil");
+        const geo = await fetch(`https://nominatim.openstreetmap.org/search?q=${endCompleto}&format=json&limit=1`,{headers:{"User-Agent":"MotoFlash/1.0"}});
+        const geoData = await geo.json();
+        if (geoData?.[0]) { clienteLat = parseFloat(geoData[0].lat); clienteLng = parseFloat(geoData[0].lon); }
+      } catch(e) {}
       await api("POST","/entrega",{
         cliente_nome:cn, cliente_endereco:ce,
-        cliente_lat:-23.55+Math.random()*0.04, cliente_lng:-45.35+Math.random()*0.04,
+        cliente_lat:clienteLat, cliente_lng:clienteLng,
         valor_pedido:val, distancia_km:dist
       });
       toast("Entrega publicada para motoboys!");
