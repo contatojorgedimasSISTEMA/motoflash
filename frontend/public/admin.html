@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotoFlash — Admin</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0D0D0D;color:#F0F0F0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+.hdr{background:#161616;border-bottom:1px solid #2A2A2A;padding:16px 24px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:20px;font-weight:800}
+.logo span{color:#FF6B00}
+.container{max-width:1100px;margin:0 auto;padding:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.card{background:#1E1E1E;border:1px solid #2A2A2A;border-radius:12px;padding:20px}
+.stat-n{font-size:32px;font-weight:800;margin-bottom:4px}
+.stat-l{font-size:13px;color:#888}
+.acc{color:#FF6B00}.grn{color:#22C55E}.txt{color:#F0F0F0}
+.table-wrap{overflow-x:auto;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#161616;padding:10px 12px;text-align:left;color:#888;font-weight:600;border-bottom:1px solid #2A2A2A}
+td{padding:10px 12px;border-bottom:1px solid #2A2A2A}
+tr:hover td{background:#252525}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700}
+.badge-grn{background:#22C55E22;color:#22C55E}
+.badge-red{background:#EF444422;color:#EF4444}
+.btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:700;font-size:13px;font-family:inherit}
+.btn-acc{background:#FF6B00;color:#fff}
+.btn-grn{background:#22C55E;color:#fff}
+.btn-ghost{background:transparent;color:#888;border:1px solid #2A2A2A}
+input{background:#161616;border:1px solid #2A2A2A;border-radius:8px;padding:10px 14px;color:#F0F0F0;font-size:14px;outline:none;font-family:inherit}
+input:focus{border-color:#FF6B00}
+.login-box{max-width:380px;margin:80px auto;padding:32px;background:#1E1E1E;border-radius:16px;border:1px solid #2A2A2A}
+.section-title{font-size:16px;font-weight:700;margin-bottom:14px;color:#F0F0F0}
+.loading{text-align:center;padding:40px;color:#888}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+let adminKey = localStorage.getItem("mf_admin_key") || "";
+let dados = null;
+
+async function buscarDados() {
+  const r = await fetch("/api/admin/dashboard", { headers: { "x-admin-key": adminKey } });
+  if (r.status === 403) throw new Error("Senha incorreta");
+  return await r.json();
+}
+
+async function ativarPlano(id, nome) {
+  if (!confirm(`Ativar plano de ${nome}?`)) return;
+  const r = await fetch(`/api/admin/ativar/${id}`, { headers: { "x-admin-key": adminKey } });
+  const data = await r.json();
+  if (data.ok) { alert("Plano ativado!"); carregar(); }
+}
+
+async function carregar() {
+  document.getElementById("root").innerHTML = `<div class="loading">Carregando...</div>`;
+  try {
+    dados = await buscarDados();
+    render();
+  } catch(e) {
+    localStorage.removeItem("mf_admin_key");
+    adminKey = "";
+    renderLogin(e.message);
+  }
+}
+
+function renderLogin(erro) {
+  document.getElementById("root").innerHTML = `
+  <div class="login-box">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-size:40px;margin-bottom:8px">🏍️</div>
+      <div style="font-size:20px;font-weight:800">Moto<span style="color:#FF6B00">Flash</span></div>
+      <div style="color:#888;font-size:13px;margin-top:4px">Painel Administrativo</div>
+    </div>
+    ${erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">${erro}</div>` : ""}
+    <div style="margin-bottom:12px"><input id="admin-key" type="password" placeholder="Senha de administrador" style="width:100%"></div>
+    <button class="btn btn-acc" style="width:100%;padding:12px" onclick="fazerLogin()">Entrar</button>
+  </div>`;
+  const inp = document.getElementById("admin-key");
+  if (inp) inp.addEventListener("keydown", e => { if(e.key==="Enter") fazerLogin(); });
+}
+
+function fazerLogin() {
+  const key = document.getElementById("admin-key")?.value;
+  if (!key) return;
+  adminKey = key;
+  localStorage.setItem("mf_admin_key", key);
+  carregar();
+}
+
+function render() {
+  if (!dados) return;
+  const { resumo, cidades, rest_lista, moto_lista } = dados;
+  document.getElementById("root").innerHTML = `
+  <div class="hdr">
+    <div class="logo">Moto<span>Flash</span> <span style="font-size:12px;color:#888;font-weight:400">Admin</span></div>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span style="font-size:12px;color:#888">${new Date().toLocaleDateString("pt-BR")}</span>
+      <button class="btn btn-ghost" onclick="carregar()">Atualizar</button>
+      <button class="btn btn-ghost" onclick="sair()">Sair</button>
+    </div>
+  </div>
+  <div class="container">
+
+    <!-- Resumo -->
+    <div class="grid">
+      <div class="card"><div class="stat-n acc">R$ ${resumo.receita_total.toFixed(2)}</div><div class="stat-l">Receita total</div></div>
+      <div class="card"><div class="stat-n grn">${resumo.restaurantes_ativos}</div><div class="stat-l">Restaurantes ativos</div></div>
+      <div class="card"><div class="stat-n acc">${resumo.motoboys_total}</div><div class="stat-l">Motoboys cadastrados</div></div>
+      <div class="card"><div class="stat-n txt">${resumo.corridas_hoje}</div><div class="stat-l">Corridas hoje</div></div>
+      <div class="card"><div class="stat-n grn">R$ ${resumo.receita_mensalidades.toFixed(2)}</div><div class="stat-l">Mensalidades/mes</div></div>
+      <div class="card"><div class="stat-n grn">R$ ${resumo.receita_corridas.toFixed(2)}</div><div class="stat-l">Receita corridas</div></div>
+    </div>
+
+    <!-- Cidades -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">Cidades</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Cidade</th><th>Restaurantes</th><th>Ativos</th></tr>
+          ${cidades.map(c=>`<tr><td>${c.cidade}</td><td>${c.restaurantes}</td><td><span class="badge ${c.ativos>0?"badge-grn":"badge-red"}">${c.ativos||0} ativos</span></td></tr>`).join("")}
+        </table>
+      </div>
+    </div>
+
+    <!-- Restaurantes -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="section-title">Restaurantes (${resumo.restaurantes_total} total)</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Nome</th><th>Cidade</th><th>Email</th><th>Plano</th><th>Cadastro</th><th>Acao</th></tr>
+          ${rest_lista.map(r=>`<tr>
+            <td><b>${r.nome}</b></td>
+            <td>${r.cidade}</td>
+            <td style="color:#888">${r.email}</td>
+            <td><span class="badge ${r.plano_ativo?"badge-grn":"badge-red"}">${r.plano_ativo?"Ativo":"Inativo"}</span></td>
+            <td style="color:#888">${new Date(r.created_at).toLocaleDateString("pt-BR")}</td>
+            <td>${!r.plano_ativo?`<button class="btn btn-grn" onclick="ativarPlano('${r.id}','${r.nome}')">Ativar</button>`:"—"}</td>
+          </tr>`).join("")}
+        </table>
+      </div>
+    </div>
+
+    <!-- Motoboys -->
+    <div class="card">
+      <div class="section-title">Motoboys (${resumo.motoboys_total} total)</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Nome</th><th>Cidade</th><th>Corridas</th><th>Ganhos</th><th>Status</th></tr>
+          ${moto_lista.map(m=>`<tr>
+            <td><b>${m.nome}</b></td>
+            <td>${m.cidade}</td>
+            <td>${m.corridas_total}</td>
+            <td class="grn">R$ ${Number(m.ganhos_total||0).toFixed(2)}</td>
+            <td><span class="badge ${m.status==="livre"?"badge-grn":"badge-red"}">${m.status}</span></td>
+          </tr>`).join("")}
+        </table>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+function sair() {
+  localStorage.removeItem("mf_admin_key");
+  adminKey = "";
+  renderLogin();
+}
+
+// Iniciar
+if (adminKey) { carregar(); } else { renderLogin(); }
+</script>
+</body>
+</html>
