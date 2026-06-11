@@ -255,14 +255,106 @@ app.get("/api/motoboy/posicao/:id", authMiddleware, (req, res) => {
 });
 
 // ─── ADMIN ─────────────────────────────────────────────────────────────────────
-app.get("/api/admin/dashboard", authMiddleware, (req, res) => {
-  if (req.user.tipo !== "admin") return res.status(403).json({ erro: "Acesso negado" });
+app.get("/api/admin/dashboard", (req, res) => {
+  const senha = req.headers["x-admin-key"];
+  if (senha !== (process.env.ADMIN_KEY || "motoflash_admin_2024")) return res.status(403).json({ erro: "Acesso negado" });
   const restaurantes = db.prepare("SELECT COUNT(*) as total, SUM(plano_ativo) as ativos FROM restaurantes").get();
   const motoboys = db.prepare("SELECT COUNT(*) as total FROM motoboys").get();
   const entregas = db.prepare("SELECT COUNT(*) as total, SUM(tarifa_app) as receita_app FROM entregas WHERE status='entregue'").get();
-  const mensalidades = restaurantes.ativos * MENSALIDADE;
-  const cidades = db.prepare("SELECT cidade, COUNT(*) as restaurantes FROM restaurantes GROUP BY cidade").all();
-  res.json({ restaurantes, motoboys, entregas, mensalidades, receita_total: (entregas.receita_app||0) + mensalidades, cidades });
+  const mensalidades = (restaurantes.ativos||0) * MENSALIDADE;
+  const cidades = db.prepare("SELECT cidade, COUNT(*) as restaurantes, SUM(plano_ativo) as ativos FROM restaurantes GROUP BY cidade ORDER BY restaurantes DESC").all();
+  const rest_lista = db.prepare("SELECT id,nome,cidade,email,plano_ativo,plano_vencimento,created_at FROM restaurantes ORDER BY created_at DESC LIMIT 50").all();
+  const moto_lista = db.prepare("SELECT id,nome,cidade,corridas_total,ganhos_total,status FROM motoboys ORDER BY corridas_total DESC LIMIT 50").all();
+  const corridas_hoje = db.prepare("SELECT COUNT(*) as total FROM entregas WHERE date(created_at)=date('now')").get();
+  res.json({
+    resumo: {
+      restaurantes_total: restaurantes.total,
+      restaurantes_ativos: restaurantes.ativos||0,
+      motoboys_total: motoboys.total,
+      entregas_total: entregas.total,
+      receita_corridas: parseFloat((entregas.receita_app||0).toFixed(2)),
+      receita_mensalidades: parseFloat(mensalidades.toFixed(2)),
+      receita_total: parseFloat(((entregas.receita_app||0) + mensalidades).toFixed(2)),
+      corridas_hoje: corridas_hoje.total,
+    },
+    cidades, rest_lista, moto_lista
+  });
+});
+
+app.get("/api/admin/ativar/:id", (req, res) => {
+  const senha = req.headers["x-admin-key"];
+  if (senha !== (process.env.ADMIN_KEY || "motoflash_admin_2024")) return res.status(403).json({ erro: "Acesso negado" });
+  const vencimento = new Date();
+  vencimento.setMonth(vencimento.getMonth() + 1);
+  db.prepare("UPDATE restaurantes SET plano_ativo=1, plano_vencimento=? WHERE id=?").run(vencimento.toISOString(), req.params.id);
+  res.json({ ok: true });
+});
+
+// ─── GERAR PIX MENSALIDADE ────────────────────────────────────────────────────
+app.post("/api/restaurante/gerar-pix-mensalidade", authMiddleware, async (req, res) => {
+  try {
+    const rest = db.prepare("SELECT * FROM restaurantes WHERE id=?").get(req.user.id);
+    if (!rest) return res.status(404).json({ erro: "Restaurante nao encontrado" });
+
+    if (process.env.MP_ACCESS_TOKEN && !process.env.MP_ACCESS_TOKEN.includes("seu_token")) {
+      const MercadoPago = require("mercadopago");
+      const mp = new MercadoPago.MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+      const payment = new MercadoPago.Payment(mp);
+      const result = await payment.create({
+        body: {
+          transaction_amount: 19.90,
+          payment_method_id: "pix",
+          payer: { email: rest.email, first_name: rest.nome },
+          description: `MotoFlash - Mensalidade ${rest.nome}`,
+          notification_url: process.env.APP_URL ? `${process.env.APP_URL}/api/webhook/mp` : undefined,
+        }
+      });
+      const pix_data = result.point_of_interaction?.transaction_data;
+      return res.json({
+        payment_id: result.id,
+        status: result.status,
+        qr_code: pix_data?.qr_code,
+        qr_code_base64: pix_data?.qr_code_base64,
+        valor: 19.90,
+        copia_cola: pix_data?.qr_code,
+      });
+    }
+
+    // Simulado sem token MP real
+    res.json({
+      simulado: true,
+      valor: 19.90,
+      chave_pix: "motoflash@pix.com.br",
+      mensagem: "Envie R$19,90 para a chave PIX abaixo e envie o comprovante",
+    });
+  } catch (e) {
+    res.status(500).json({ erro: e.message });
+  }
+});
+
+// ─── WEBHOOK MERCADO PAGO ──────────────────────────────────────────────────────
+app.post("/api/webhook/mp", async (req, res) => {
+  try {
+    const { type, data } = req.body;
+    if (type === "payment" && data?.id) {
+      if (process.env.MP_ACCESS_TOKEN) {
+        const MercadoPago = require("mercadopago");
+        const mp = new MercadoPago.MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
+        const payment = new MercadoPago.Payment(mp);
+        const p = await payment.get({ id: data.id });
+        if (p.status === "approved" && p.transaction_amount === 19.90) {
+          const email = p.payer?.email;
+          if (email) {
+            const vencimento = new Date();
+            vencimento.setMonth(vencimento.getMonth() + 1);
+            db.prepare("UPDATE restaurantes SET plano_ativo=1, plano_vencimento=? WHERE email=?")
+              .run(vencimento.toISOString(), email);
+          }
+        }
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) { res.json({ ok: true }); }
 });
 
 // ─── ATIVAR PLANO (simulado) ───────────────────────────────────────────────────
