@@ -368,8 +368,10 @@ function telaCadastroRest() {
     ${campo("Chave PIX","cr-pix","text","CPF, telefone ou email")}
     <div class="field"><span class="lbl">Categoria</span>
     <select id="cr-cat"><option>Lanches</option><option>Pizza</option><option>Japonesa</option><option>Brasileira</option><option>Bar</option><option>Padaria</option><option>Outros</option></select></div>
-    <button class="btn btn-acc" id="btn-cad-rest-ok">Cadastrar</button>
-    ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Aguarde...</div>' : ""}
+    <button class="btn btn-acc" id="btn-cad-rest-ok" onclick="cadastrarRestaurante()">
+      ${S.loading ? "Cadastrando..." : "Finalizar Cadastro"}
+    </button>
+    ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Conectando ao servidor...</div>' : ""}
     ${S.erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">${S.erro}</div>` : ""}
   </div>`;
 }
@@ -791,6 +793,33 @@ function bindAll() {
 // ─── RENDER FULL COM MODAL ─────────────────────────────────────────────────────
 const origRender = render;
 window.set = set;
+
+window.cadastrarRestaurante = async function() {
+  const nome = document.getElementById("cr-nome")?.value?.trim();
+  const email = document.getElementById("cr-email")?.value?.trim();
+  const senha = document.getElementById("cr-senha")?.value;
+  const telefone = document.getElementById("cr-tel")?.value?.trim();
+  const endereco = document.getElementById("cr-end")?.value?.trim();
+  const cidade = document.getElementById("cr-cid")?.value?.trim();
+  const pix = document.getElementById("cr-pix")?.value?.trim();
+  const categoria = document.getElementById("cr-cat")?.value;
+  if (!nome) { set({ erro: "Preencha o nome do estabelecimento" }); return; }
+  if (!email) { set({ erro: "Preencha o email" }); return; }
+  if (!senha || senha.length < 6) { set({ erro: "Senha com minimo 6 caracteres" }); return; }
+  if (!cidade) { set({ erro: "Preencha a cidade" }); return; }
+  set({ loading: true, erro: null }, true);
+  try {
+    const data = await api("POST", "/restaurante/cadastro", { nome, email, senha, telefone, endereco, cidade, pix, categoria });
+    localStorage.setItem("mf_token", data.token);
+    localStorage.setItem("mf_user", JSON.stringify(data));
+    localStorage.setItem("mf_tipo", "restaurante");
+    conectarWS(cidade);
+    set({ token: data.token, user: data, tipo: "restaurante", tela: "painel_rest", loading: false, erro: null });
+    toast("Conta criada! Ative seu plano para comecar.");
+  } catch (e) {
+    set({ loading: false, erro: e.message || "Erro ao cadastrar. Verifique sua conexao." });
+  }
+};
 window.render = function() {
   origRender();
   const modal = buildPixModal();
