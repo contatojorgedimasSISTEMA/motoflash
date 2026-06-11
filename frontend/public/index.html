@@ -321,7 +321,7 @@ function telaInicio() {
       <div class="muted small mt8">Entregas rapidas para qualquer cidade</div>
     </div>
     ${S.instalarBanner ? `<div class="install-banner"><span style="font-size:22px">📲</span><div style="flex:1"><div class="bold small">Instalar app</div><div class="muted small">Adicione MotoFlash na tela inicial</div></div><button class="btn btn-acc" style="width:auto;padding:8px 14px;margin:0;font-size:12px" id="btn-instalar">Instalar</button></div>` : ""}
-    <div class="card" style="cursor:pointer;margin-bottom:10px" id="go-rest">
+    <div class="card" style="cursor:pointer;margin-bottom:10px" id="go-rest" onclick="set({tela:'login_rest',erro:null})">
       <div class="row" style="gap:14px">
         <div class="avatar" style="background:var(--acc2)">🍔</div>
         <div>
@@ -331,7 +331,7 @@ function telaInicio() {
         </div>
       </div>
     </div>
-    <div class="card" style="cursor:pointer" id="go-moto">
+    <div class="card" style="cursor:pointer" id="go-moto" onclick="set({tela:'login_moto',erro:null})">
       <div class="row" style="gap:14px">
         <div class="avatar" style="background:var(--grn2)">🏍️</div>
         <div>
@@ -350,7 +350,7 @@ function telaLoginRest() {
   ${hdr("Restaurante", "inicio")}
   <div class="screen sec">
     ${formLogin("rest")}
-    <hr class="sep"><button class="btn btn-ghost" id="go-cad-rest">Criar nova conta de restaurante</button>
+    <hr class="sep"><button class="btn btn-ghost" id="go-cad-rest" onclick="set({tela:'cadastro_rest',erro:null})">Criar nova conta de restaurante</button>
   </div>`;
 }
 
@@ -458,7 +458,7 @@ function telaLoginMoto() {
   ${hdr("Motoboy", "inicio")}
   <div class="screen sec">
     ${formLogin("moto")}
-    <hr class="sep"><button class="btn btn-ghost" id="go-cad-moto">Criar nova conta de motoboy</button>
+    <hr class="sep"><button class="btn btn-ghost" id="go-cad-moto" onclick="set({tela:'cadastro_moto',erro:null})">Criar nova conta de motoboy</button>
   </div>`;
 }
 
@@ -790,6 +790,7 @@ function bindAll() {
 
 // ─── RENDER FULL COM MODAL ─────────────────────────────────────────────────────
 const origRender = render;
+window.set = set;
 window.render = function() {
   origRender();
   const modal = buildPixModal();
