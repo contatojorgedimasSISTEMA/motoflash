@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#FF6B00">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MotoFlash">
+<meta name="description" content="Plataforma de entregas para restaurantes e motoboys">
+<title>MotoFlash</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0D0D0D;--surf:#161616;--card:#1E1E1E;--bord:#2A2A2A;--acc:#FF6B00;--acc2:#FF6B0018;--grn:#22C55E;--grn2:#22C55E18;--red:#EF4444;--txt:#F0F0F0;--mut:#777}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+#app{height:100vh;max-width:430px;margin:0 auto;display:flex;flex-direction:column;overflow:hidden}
+.screen{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:env(safe-area-inset-bottom)}
+input,select,button{font-family:inherit;font-size:14px}
+input,select{background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:11px 13px;color:var(--txt);width:100%;outline:none}
+input::placeholder{color:var(--mut)}
+select option{background:#1E1E1E}
+.btn{width:100%;padding:14px;border-radius:10px;border:none;cursor:pointer;font-weight:700;font-size:15px;margin-top:8px;transition:.15s}
+.btn:active{transform:scale(.97)}
+.btn-acc{background:var(--acc);color:#fff}
+.btn-grn{background:var(--grn);color:#fff}
+.btn-ghost{background:transparent;color:var(--mut);border:1px solid var(--bord)}
+.btn-outline{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+.card{background:var(--card);border:1px solid var(--bord);border-radius:12px;padding:15px;margin-bottom:10px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.hdr{background:var(--surf);border-bottom:1px solid var(--bord);padding:14px 18px;display:flex;align-items:center;gap:10px;flex-shrink:0;padding-top:calc(14px + env(safe-area-inset-top))}
+.tabs{display:flex;background:var(--surf);border-bottom:1px solid var(--bord);flex-shrink:0}
+.tab{flex:1;padding:12px 4px;background:transparent;color:var(--mut);border:none;cursor:pointer;font-weight:700;font-size:12px;border-bottom:2px solid transparent;transition:.2s}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc)}
+.sec{padding:14px 16px}
+.field{margin-bottom:12px}
+.lbl{font-size:12px;color:var(--mut);margin-bottom:5px;display:block}
+.sep{border:none;border-top:1px solid var(--bord);margin:14px 0}
+.row{display:flex;align-items:center;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat{background:var(--surf);border-radius:10px;padding:12px;text-align:center}
+.stat-n{font-size:22px;font-weight:800}
+.stat-l{font-size:11px;color:var(--mut);margin-top:2px}
+.muted{color:var(--mut)}
+.small{font-size:12px}
+.bold{font-weight:700}
+.green{color:var(--grn)}
+.acc{color:var(--acc)}
+.mt8{margin-top:8px}
+.mt16{margin-top:16px}
+.info-box{background:var(--acc2);border-radius:10px;padding:12px;font-size:13px;color:var(--acc);margin-bottom:12px;line-height:1.5}
+.info-box.grn{background:var(--grn2);color:var(--grn)}
+#mapa-entrega{height:260px;width:100%;border-radius:12px;border:1px solid var(--bord);margin-bottom:10px}
+.pulse{width:10px;height:10px;border-radius:50%;background:var(--grn);animation:pulse 1.4s infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #22C55E66}50%{box-shadow:0 0 0 7px #22C55E00}}
+.step-bar{display:flex;flex-shrink:0}
+.step{flex:1;text-align:center;padding:10px 4px;font-size:11px;font-weight:700;border-bottom:3px solid var(--bord);color:var(--mut);transition:.3s}
+.step.done{border-bottom-color:var(--grn);color:var(--grn)}
+.step.active{border-bottom-color:var(--acc);color:var(--acc)}
+.eta-box{background:var(--acc2);border:1px solid #FF6B0044;border-radius:10px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.toast-el{position:fixed;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:30px;font-size:13px;font-weight:700;z-index:999;white-space:nowrap;transition:.3s;pointer-events:none}
+.overlay{position:fixed;inset:0;background:#000c;z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:430px;padding:24px;padding-bottom:calc(24px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto}
+.avatar{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.pill-bar{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;scrollbar-width:none}
+.pill-bar::-webkit-scrollbar{display:none}
+.pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;cursor:pointer;border:1px solid var(--bord);background:transparent;color:var(--mut)}
+.pill.on{background:var(--acc2);color:var(--acc);border-color:var(--acc)}
+.install-banner{background:var(--acc2);border:1px solid #FF6B0044;border-radius:10px;padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:10px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const API = "";
+const ORS_KEY = "5b3ce3597851110001cf6248a2e9a5c3f1a74073be7dc1c18c6f4db4";
+const TAXA = 0.20;
+let mapInstance = null, motoMarker = null, rotaLayer = null, wsConn = null;
+
+// ─── ESTADO ────────────────────────────────────────────────────────────────────
+let S = {
+  tela: "inicio",
+  token: localStorage.getItem("mf_token"),
+  user: JSON.parse(localStorage.getItem("mf_user") || "null"),
+  tipo: localStorage.getItem("mf_tipo"),
+  entregas: [],
+  minhasEntregas: [],
+  corridaAtiva: null,
+  corridaStep: null,
+  gpsAtivo: false,
+  watchId: null,
+  motoLat: null, motoLng: null,
+  distRestante: null, etaMin: null,
+  filtroCategoria: "Todos",
+  pagRest: "pedidos",
+  pagMoto: "corridas",
+  pixModal: null,
+  loading: false,
+  erro: null,
+  calcPreview: null,
+  instalarBanner: false,
+  deferredPrompt: null,
+};
+
+function set(upd, noRender) {
+  Object.assign(S, upd);
+  if (!noRender) render();
+}
+
+// Auto login
+if (S.token && S.user && S.tipo) {
+  S.tela = S.tipo === "restaurante" ? "painel_rest" : "painel_moto";
+}
+
+// ─── API ───────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: { "Content-Type": "application/json" } };
+  if (S.token) opts.headers["Authorization"] = "Bearer " + S.token;
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + "/api" + path, opts);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.erro || "Erro na requisicao");
+  return data;
+}
+
+// ─── WEBSOCKET ─────────────────────────────────────────────────────────────────
+function conectarWS(cidade) {
+  if (wsConn) wsConn.close();
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const host = location.host;
+  wsConn = new WebSocket(`${proto}://${host}/ws/${encodeURIComponent(cidade)}`);
+  wsConn.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.tipo === "nova_entrega") {
+        S.entregas.unshift(msg.dados);
+        if (S.tela === "painel_moto") render();
+        toast("Nova corrida disponivel!", "#FF6B00");
+      }
+      if (msg.tipo === "gps_update" && S.corridaAtiva) {
+        if (motoMarker) motoMarker.setLatLng([msg.dados.lat, msg.dados.lng]);
+      }
+      if (msg.tipo === "entrega_concluida") {
+        carregarEntregasRest();
+      }
+    } catch {}
+  };
+}
+
+// ─── GPS ───────────────────────────────────────────────────────────────────────
+function ativarGPS() {
+  if (!navigator.geolocation) { toast("GPS nao disponivel","#EF4444"); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    S.motoLat = pos.coords.latitude;
+    S.motoLng = pos.coords.longitude;
+    S.gpsAtivo = true;
+    iniciarWatch();
+    buscarRota();
+    render();
+  }, () => {
+    S.motoLat = -23.5530; S.motoLng = -46.6420;
+    S.gpsAtivo = true;
+    iniciarWatch();
+    buscarRota();
+    render();
+    toast("Usando posicao simulada","#FF6B00");
+  }, { enableHighAccuracy: true, timeout: 8000 });
+}
+
+function iniciarWatch() {
+  if (S.watchId) navigator.geolocation.clearWatch(S.watchId);
+  S.watchId = navigator.geolocation.watchPosition(pos => {
+    S.motoLat = pos.coords.latitude;
+    S.motoLng = pos.coords.longitude;
+    if (motoMarker) motoMarker.setLatLng([S.motoLat, S.motoLng]);
+    if (mapInstance) mapInstance.panTo([S.motoLat, S.motoLng], { animate: true, duration: 0.8 });
+    atualizarDistETA();
+    buscarRota();
+    if (S.token && S.corridaAtiva) {
+      api("POST", "/motoboy/gps", { lat: S.motoLat, lng: S.motoLng }).catch(() => {});
+    }
+  }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 });
+}
+
+function atualizarDistETA() {
+  if (!S.corridaAtiva || !S.motoLat) return;
+  const dest = S.corridaStep === "indo"
+    ? { lat: S.corridaAtiva.rest_lat || -23.548, lng: S.corridaAtiva.rest_lng || -46.638 }
+    : { lat: S.corridaAtiva.cliente_lat, lng: S.corridaAtiva.cliente_lng };
+  const d = calcDist(S.motoLat, S.motoLng, dest.lat, dest.lng);
+  S.distRestante = d;
+  S.etaMin = Math.ceil(d / 0.5);
+  const el1 = document.getElementById("dist-val");
+  const el2 = document.getElementById("eta-val");
+  if (el1) el1.textContent = d.toFixed(1) + " km";
+  if (el2) el2.textContent = S.etaMin + " min";
+}
+
+function calcDist(a, b, c, d) {
+  const R = 6371, dLat = (c - a) * Math.PI / 180, dLng = (d - b) * Math.PI / 180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+
+async function buscarRota() {
+  if (!S.motoLat || !S.corridaAtiva || !mapInstance) return;
+  const dest = S.corridaStep === "indo"
+    ? [S.corridaAtiva.rest_lng || -46.638, S.corridaAtiva.rest_lat || -23.548]
+    : [S.corridaAtiva.cliente_lng, S.corridaAtiva.cliente_lat];
+  try {
+    const r = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": ORS_KEY },
+      body: JSON.stringify({ coordinates: [[S.motoLng, S.motoLat], dest] })
+    });
+    const data = await r.json();
+    if (data.features?.[0]) {
+      const coords = data.features[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      const props = data.features[0].properties.summary;
+      S.distRestante = props.distance / 1000;
+      S.etaMin = Math.ceil(props.duration / 60);
+      if (rotaLayer) mapInstance.removeLayer(rotaLayer);
+      rotaLayer = window.L.polyline(coords, { color: "#FF6B00", weight: 5, opacity: .85 }).addTo(mapInstance);
+      mapInstance.fitBounds(rotaLayer.getBounds(), { padding: [50, 50] });
+      const el1 = document.getElementById("dist-val");
+      const el2 = document.getElementById("eta-val");
+      if (el1) el1.textContent = S.distRestante.toFixed(1) + " km";
+      if (el2) el2.textContent = S.etaMin + " min";
+    }
+  } catch {}
+}
+
+function initMapa(entrega) {
+  setTimeout(() => {
+    const el = document.getElementById("mapa-entrega");
+    if (!el || !window.L) return;
+    if (mapInstance) { mapInstance.remove(); mapInstance = null; motoMarker = null; rotaLayer = null; }
+    const restLat = entrega.rest_lat || -23.548;
+    const restLng = entrega.rest_lng || -46.638;
+    const center = S.motoLat ? [S.motoLat, S.motoLng] : [restLat, restLng];
+    mapInstance = window.L.map("mapa-entrega", { zoomControl: false, attributionControl: false }).setView(center, 14);
+    window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(mapInstance);
+    const mkF = (emoji, cor) => window.L.divIcon({ html: `<div style="background:${cor};width:36px;height:36px;border-radius:50%;border:3px solid white;display:flex;align-items:center;justify-content:center;font-size:17px">${emoji}</div>`, iconSize: [36,36], iconAnchor: [18,18], className:"" });
+    window.L.marker([restLat, restLng], { icon: mkF("🍔","#FF6B00") }).addTo(mapInstance).bindPopup(entrega.restaurante_nome || "Restaurante");
+    window.L.marker([entrega.cliente_lat, entrega.cliente_lng], { icon: mkF("🏠","#22C55E") }).addTo(mapInstance).bindPopup(entrega.cliente_nome);
+    if (S.motoLat) {
+      motoMarker = window.L.marker([S.motoLat, S.motoLng], { icon: mkF("🏍️","#1E1E1E") }).addTo(mapInstance);
+      buscarRota();
+    } else {
+      window.L.polyline([[restLat,restLng],[entrega.cliente_lat,entrega.cliente_lng]],{color:"#FF6B00",weight:4,dashArray:"8 6",opacity:.6}).addTo(mapInstance);
+      mapInstance.fitBounds([[restLat,restLng],[entrega.cliente_lat,entrega.cliente_lng]],{padding:[50,50]});
+    }
+  }, 100);
+}
+
+// ─── CARREGAR DADOS ────────────────────────────────────────────────────────────
+async function carregarEntregasDisp() {
+  try { S.entregas = await api("GET", "/entregas/disponiveis"); render(); } catch {}
+}
+
+async function carregarEntregasRest() {
+  try { S.minhasEntregas = await api("GET", "/entregas/restaurante"); render(); } catch {}
+}
+
+function calcTarifa(km) { return Math.max(5, 5 + km * 1.8); }
+
+// ─── TOAST ─────────────────────────────────────────────────────────────────────
+function toast(msg, cor = "#22C55E") {
+  const t = document.createElement("div");
+  t.className = "toast-el";
+  t.style.background = cor;
+  t.style.color = "#fff";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ─── PWA INSTALL ───────────────────────────────────────────────────────────────
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  S.deferredPrompt = e;
+  S.instalarBanner = true;
+  render();
+});
+
+// ─── RENDER ────────────────────────────────────────────────────────────────────
+function render() {
+  const telas = {
+    inicio: telaInicio,
+    login_rest: telaLoginRest,
+    cadastro_rest: telaCadastroRest,
+    painel_rest: telaPainelRest,
+    login_moto: telaLoginMoto,
+    cadastro_moto: telaCadastroMoto,
+    painel_moto: telaPainelMoto,
+  };
+  document.getElementById("app").innerHTML = (telas[S.tela] || telaInicio)();
+  bindAll();
+  if (S.corridaAtiva && S.corridaStep && S.corridaStep !== "entregue") {
+    initMapa(S.corridaAtiva);
+  }
+  if (S.tela === "painel_moto" && S.pagMoto === "corridas" && !S.corridaAtiva) {
+    carregarEntregasDisp();
+  }
+  if (S.tela === "painel_rest" && S.pagRest === "pedidos") {
+    carregarEntregasRest();
+  }
+}
+
+// ─── TELAS ─────────────────────────────────────────────────────────────────────
+function telaInicio() {
+  return `
+  <div class="screen" style="display:flex;flex-direction:column;justify-content:center;padding:40px 20px">
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="font-size:56px;margin-bottom:10px">🏍️</div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:-1px">Moto<span style="color:var(--acc)">Flash</span></div>
+      <div class="muted small mt8">Entregas rapidas para qualquer cidade</div>
+    </div>
+    ${S.instalarBanner ? `<div class="install-banner"><span style="font-size:22px">📲</span><div style="flex:1"><div class="bold small">Instalar app</div><div class="muted small">Adicione MotoFlash na tela inicial</div></div><button class="btn btn-acc" style="width:auto;padding:8px 14px;margin:0;font-size:12px" id="btn-instalar">Instalar</button></div>` : ""}
+    <div class="card" style="cursor:pointer;margin-bottom:10px" id="go-rest">
+      <div class="row" style="gap:14px">
+        <div class="avatar" style="background:var(--acc2)">🍔</div>
+        <div>
+          <div class="bold">Sou Restaurante / Comercio</div>
+          <div class="muted small">Cadastre e gerencie suas entregas</div>
+          <div class="mt8"><span class="badge" style="background:var(--acc2);color:var(--acc)">R$ 19,90/mes</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="cursor:pointer" id="go-moto">
+      <div class="row" style="gap:14px">
+        <div class="avatar" style="background:var(--grn2)">🏍️</div>
+        <div>
+          <div class="bold">Sou Motoboy</div>
+          <div class="muted small">Receba corridas e ganhe por entrega</div>
+          <div class="mt8"><span class="badge" style="background:var(--grn2);color:var(--grn)">Cadastro gratuito</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:24px" class="muted small">App retém 20% por corrida · PIX automatico · Qualquer cidade</div>
+  </div>`;
+}
+
+function telaLoginRest() {
+  return `
+  ${hdr("Restaurante", "inicio")}
+  <div class="screen sec">
+    ${formLogin("rest")}
+    <hr class="sep"><button class="btn btn-ghost" id="go-cad-rest">Criar nova conta de restaurante</button>
+  </div>`;
+}
+
+function telaCadastroRest() {
+  return `
+  ${hdr("Cadastro do Restaurante", "login_rest")}
+  <div class="screen sec">
+    <div class="info-box">Plano mensal: <strong>R$ 19,90</strong> — funciona em qualquer cidade</div>
+    ${campo("Nome do estabelecimento","cr-nome","text","Burguer do Ze, Bar do Joao...")}
+    ${campo("Email","cr-email","email","email@seurestaurante.com")}
+    ${campo("Senha","cr-senha","password","Minimo 6 caracteres")}
+    ${campo("Telefone / WhatsApp","cr-tel","text","(12) 99999-0000")}
+    ${campo("Endereco completo","cr-end","text","Rua, numero - Bairro")}
+    ${campo("Cidade","cr-cid","text","Ilhabela, Caraguatatuba, SJC...")}
+    ${campo("Chave PIX","cr-pix","text","CPF, telefone ou email")}
+    <div class="field"><span class="lbl">Categoria</span>
+    <select id="cr-cat"><option>Lanches</option><option>Pizza</option><option>Japonesa</option><option>Brasileira</option><option>Bar</option><option>Padaria</option><option>Outros</option></select></div>
+    <button class="btn btn-acc" id="btn-cad-rest-ok">Cadastrar</button>
+    ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Aguarde...</div>' : ""}
+    ${S.erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">${S.erro}</div>` : ""}
+  </div>`;
+}
+
+function telaPainelRest() {
+  const u = S.user || {};
+  const pags = { pedidos: pagRestPedidos, nova: pagRestNova, conta: pagRestConta };
+  const aguardando = S.minhasEntregas.filter(e => e.status === "disponivel").length;
+  const emEntrega = S.minhasEntregas.filter(e => e.status === "em_entrega").length;
+  return `
+  ${hdr(u.nome || "Restaurante", "inicio")}
+  <div class="tabs">
+    <button class="tab ${S.pagRest==="pedidos"?"on":""}" data-pg-rest="pedidos">Pedidos</button>
+    <button class="tab ${S.pagRest==="nova"?"on":""}" data-pg-rest="nova">+ Nova</button>
+    <button class="tab ${S.pagRest==="conta"?"on":""}" data-pg-rest="conta">Conta</button>
+  </div>
+  <div class="screen sec">
+    <div class="grid2">
+      <div class="stat"><div class="stat-n acc">${aguardando}</div><div class="stat-l">Aguardando</div></div>
+      <div class="stat"><div class="stat-n green">${emEntrega}</div><div class="stat-l">Em entrega</div></div>
+    </div>
+    ${(pags[S.pagRest] || pagRestPedidos)()}
+  </div>`;
+}
+
+function pagRestPedidos() {
+  if (!S.minhasEntregas.length) return `<div class="card" style="text-align:center;padding:28px"><div style="font-size:28px;margin-bottom:8px">📦</div><div class="muted">Nenhuma entrega ainda</div><div class="muted small mt8">Va em "+ Nova" para publicar</div></div>`;
+  return S.minhasEntregas.map(e => {
+    const t = e.tarifa || calcTarifa(e.distancia_km || 2);
+    const stMap = { disponivel: ["Aguardando","tag-acc"], em_entrega: ["Em entrega","tag-grn"], coletado: ["Coletado","tag-grn"], entregue: ["Entregue","tag-mut"] };
+    const [stLabel, stCls] = stMap[e.status] || ["?","tag-mut"];
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <div class="bold">${e.cliente_nome}</div>
+        <span class="badge" style="background:${stCls==="tag-acc"?"var(--acc2)":stCls==="tag-grn"?"var(--grn2)":"#77777722"};color:${stCls==="tag-acc"?"var(--acc)":stCls==="tag-grn"?"var(--grn)":"var(--mut)"}">${stLabel}</span>
+      </div>
+      <div class="muted small">${e.cliente_endereco}</div>
+      <div class="row" style="margin-top:10px;gap:20px">
+        <div><div class="muted small">Pedido</div><div class="bold green">R$ ${Number(e.valor_pedido).toFixed(2)}</div></div>
+        <div><div class="muted small">Corrida</div><div class="bold acc">R$ ${Number(t).toFixed(2)}</div></div>
+        <div><div class="muted small">Dist.</div><div class="bold">${e.distancia_km} km</div></div>
+      </div>
+      ${e.motoboy_nome ? `<div class="row mt8 small"><span>🏍️</span><span>${e.motoboy_nome}</span></div>` : ""}
+      ${e.status === "em_entrega" && !e.pix_pago ? `<button class="btn btn-grn" style="margin-top:10px" data-pix="${e.id},${e.motoboy_id},${(t*0.8).toFixed(2)}">💸 Pagar PIX ao Motoboy</button>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function pagRestNova() {
+  return `
+  <div class="bold" style="margin-bottom:12px">Nova entrega</div>
+  ${campo("Nome do cliente","ne-cli","text","Nome do cliente")}
+  ${campo("Endereco de entrega","ne-end","text","Rua, numero - Bairro")}
+  ${campo("Distancia estimada (km)","ne-dist","number","Ex: 2.5")}
+  ${campo("Valor do pedido (R$)","ne-val","number","Ex: 45.00")}
+  ${S.calcPreview ? `<div class="card" style="background:var(--surf);margin-bottom:4px">
+    <div class="row" style="justify-content:space-between"><span class="muted small">Tarifa total</span><span class="bold acc">R$ ${S.calcPreview.tarifa}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="muted small">Motoboy recebe (80%)</span><span class="bold green">R$ ${S.calcPreview.moto}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="muted small">App retém (20%)</span><span class="bold">R$ ${S.calcPreview.app}</span></div>
+  </div>` : ""}
+  <button class="btn btn-outline" id="btn-calc">Calcular tarifa</button>
+  <button class="btn btn-acc" id="btn-add-entrega">Publicar para motoboys</button>
+  ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Publicando...</div>' : ""}`;
+}
+
+function pagRestConta() {
+  const u = S.user || {};
+  return `
+  <div class="card">
+    <div class="row" style="gap:12px;margin-bottom:14px">
+      <div class="avatar" style="background:var(--acc2)">🍔</div>
+      <div><div class="bold">${u.nome||""}</div><div class="muted small">${u.cidade||""}</div></div>
+    </div>
+    <hr class="sep" style="margin:10px 0">
+    <div class="row" style="justify-content:space-between;padding:7px 0">
+      <span class="muted small">Plano</span>
+      <span class="badge" style="background:var(--grn2);color:var(--grn)">${u.plano_ativo ? "Ativo — R$19,90/mes" : "Inativo"}</span>
+    </div>
+    ${!u.plano_ativo ? `<button class="btn btn-acc" id="btn-ativar-plano">Ativar plano R$ 19,90/mes</button>` : ""}
+  </div>
+  <button class="btn btn-ghost" id="btn-sair">Sair da conta</button>`;
+}
+
+function telaLoginMoto() {
+  return `
+  ${hdr("Motoboy", "inicio")}
+  <div class="screen sec">
+    ${formLogin("moto")}
+    <hr class="sep"><button class="btn btn-ghost" id="go-cad-moto">Criar nova conta de motoboy</button>
+  </div>`;
+}
+
+function telaCadastroMoto() {
+  return `
+  ${hdr("Cadastro Motoboy", "login_moto")}
+  <div class="screen sec">
+    <div class="info-box grn">Cadastro gratuito. O app retém <strong>20%</strong> por corrida. Voce recebe <strong>80%</strong> via PIX automatico.</div>
+    ${campo("Nome completo","cm-nome","text","Seu nome")}
+    ${campo("Email","cm-email","email","email@exemplo.com")}
+    ${campo("Senha","cm-senha","password","Minimo 6 caracteres")}
+    ${campo("Telefone / WhatsApp","cm-tel","text","(12) 99999-0000")}
+    ${campo("Chave PIX","cm-pix","text","CPF, telefone ou email")}
+    ${campo("Placa da moto","cm-placa","text","ABC1D23")}
+    ${campo("Cidade onde vai trabalhar","cm-cid","text","Ilhabela, Caraguatatuba...")}
+    <button class="btn btn-acc" id="btn-cad-moto-ok">Cadastrar</button>
+    ${S.loading ? '<div class="muted small" style="text-align:center;margin-top:8px">Aguarde...</div>' : ""}
+    ${S.erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">${S.erro}</div>` : ""}
+  </div>`;
+}
+
+function telaPainelMoto() {
+  const u = S.user || {};
+  const pags = { corridas: pagMotoCorridas, conta: pagMotoConta };
+  return `
+  ${hdr(u.nome || "Motoboy", "inicio")}
+  <div class="tabs">
+    <button class="tab ${S.pagMoto==="corridas"?"on":""}" data-pg-moto="corridas">Corridas</button>
+    <button class="tab ${S.pagMoto==="conta"?"on":""}" data-pg-moto="conta">Conta</button>
+  </div>
+  <div class="screen sec">
+    <div class="grid2">
+      <div class="stat"><div class="stat-n acc">${u.corridas_total||0}</div><div class="stat-l">Corridas</div></div>
+      <div class="stat"><div class="stat-n green">R$ ${Number(u.ganhos_total||0).toFixed(0)}</div><div class="stat-l">Ganhos</div></div>
+    </div>
+    ${S.corridaAtiva ? buildCorridaAtiva() : (pags[S.pagMoto] || pagMotoCorridas)()}
+  </div>`;
+}
+
+function pagMotoCorridas() {
+  if (!S.entregas.length) return `<div class="card" style="text-align:center;padding:28px"><div style="font-size:28px;margin-bottom:8px">⏳</div><div class="muted">Nenhuma corrida disponivel</div><div class="muted small mt8">Aguarde novos pedidos</div></div>`;
+  return S.entregas.map(e => {
+    const t = e.tarifa || calcTarifa(e.distancia_km || 2);
+    const recebo = t * 0.80;
+    return `<div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <div><div class="bold">${e.restaurante_nome || "Restaurante"}</div><div class="muted small">${e.restaurante_endereco || ""}</div></div>
+        <span class="badge" style="background:var(--acc2);color:var(--acc)">${e.distancia_km} km</span>
+      </div>
+      <div class="row" style="gap:6px;margin-bottom:10px"><span>📍</span><span class="muted small">${e.cliente_endereco}</span></div>
+      <div class="row" style="gap:20px">
+        <div><div class="muted small">Tarifa</div><div class="bold acc">R$ ${Number(t).toFixed(2)}</div></div>
+        <div><div class="muted small">Voce recebe</div><div class="bold green">R$ ${recebo.toFixed(2)}</div></div>
+      </div>
+      <button class="btn btn-acc" style="margin-top:10px" data-aceitar="${e.id}">Aceitar corrida</button>
+    </div>`;
+  }).join("");
+}
+
+function buildCorridaAtiva() {
+  const e = S.corridaAtiva;
+  const t = e.tarifa || calcTarifa(e.distancia_km || 2);
+  const recebo = t * 0.80;
+  const steps = [{k:"indo",l:"Buscar"},{k:"coletado",l:"Entregar"},{k:"entregue",l:"Concluido"}];
+  const idx = {indo:0,coletado:1,entregue:2}[S.corridaStep]||0;
+  const destNome = S.corridaStep === "indo" ? (e.restaurante_nome||"Restaurante") : e.cliente_nome;
+  const destEnd = S.corridaStep === "indo" ? (e.restaurante_endereco||"") : e.cliente_endereco;
+  return `
+  <div class="step-bar" style="margin:-14px -16px 14px">
+    ${steps.map((s,i)=>`<div class="step ${i<idx?"done":i===idx?"active":""}">${s.l}</div>`).join("")}
+  </div>
+  ${S.corridaStep!=="entregue"?`
+  <div class="eta-box">
+    <div><div class="muted small">Indo para</div><div class="bold" style="font-size:14px">${destNome}</div></div>
+    <div style="text-align:right"><div class="bold acc" style="font-size:18px" id="eta-val">${S.etaMin||"--"} min</div><div class="muted small" id="dist-val">${S.distRestante?S.distRestante.toFixed(1)+"km":e.distancia_km+"km"}</div></div>
+  </div>`:""}
+  <div id="mapa-entrega"></div>
+  ${!S.gpsAtivo?`<button class="btn btn-outline" id="btn-gps" style="margin-bottom:8px">📡 Ativar GPS</button>`:""}
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div><div class="muted small">${S.corridaStep==="indo"?"Buscar em":"Entregar para"}</div><div class="bold">${destNome}</div><div class="muted small">${destEnd}</div></div>
+      <div class="bold green">R$ ${recebo.toFixed(2)}</div>
+    </div>
+  </div>
+  ${S.corridaStep==="indo"?`<button class="btn btn-acc" id="btn-coletado">Pedido coletado</button>`:
+    S.corridaStep==="coletado"?`<button class="btn btn-grn" id="btn-entregue">Confirmar entrega</button>`:`
+  <div class="card" style="background:var(--grn2);border-color:var(--grn);text-align:center;padding:20px">
+    <div style="font-size:36px;margin-bottom:8px">✅</div>
+    <div class="bold green" style="font-size:16px">Entrega concluida!</div>
+    <div class="muted small mt8">R$ ${recebo.toFixed(2)} sera enviado via PIX</div>
+  </div>
+  <button class="btn btn-grn" id="btn-nova-corrida">Ver novas corridas</button>`}`;
+}
+
+function pagMotoConta() {
+  const u = S.user || {};
+  return `
+  <div class="card">
+    <div class="row" style="gap:12px;margin-bottom:14px">
+      <div class="avatar" style="background:var(--grn2)">🏍️</div>
+      <div><div class="bold">${u.nome||""}</div><div class="muted small">${u.cidade||""} · ⭐ ${u.avaliacao||"5.0"}</div></div>
+    </div>
+    <hr class="sep" style="margin:10px 0">
+    <div class="row" style="justify-content:space-between;padding:7px 0"><span class="muted small">PIX</span><span class="small bold">${u.pix||""}</span></div>
+    <div class="row" style="justify-content:space-between;padding:7px 0"><span class="muted small">Taxa do app</span><span class="small bold acc">20% por corrida</span></div>
+  </div>
+  <button class="btn btn-ghost" id="btn-sair">Sair da conta</button>`;
+}
+
+function buildPixModal() {
+  if (!S.pixModal) return "";
+  const {valor, chave, nome, entregaId, enviado} = S.pixModal;
+  return `<div class="overlay" id="overlay">
+  <div class="sheet">
+    ${enviado ? `<div style="text-align:center;padding:20px 0">
+      <div style="font-size:50px;margin-bottom:12px">✅</div>
+      <div class="bold green" style="font-size:18px">PIX enviado!</div>
+      <div class="muted small mt8">R$ ${valor} para ${nome}</div>
+      <button class="btn btn-grn" id="btn-pix-ok" style="margin-top:20px">Ok</button>
+    </div>` : `
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:34px;margin-bottom:8px">💸</div>
+      <div class="bold" style="font-size:16px">Pagar corrida via PIX</div>
+    </div>
+    <div class="card" style="background:var(--surf);text-align:center;margin-bottom:12px">
+      <div class="muted small">Motoboy</div><div class="bold mt8">${nome}</div>
+      <div class="muted small" style="margin-top:10px">Chave PIX</div>
+      <div style="font-weight:700;color:var(--acc);margin-top:4px">${chave}</div>
+      <div class="muted small" style="margin-top:10px">Valor (80%)</div>
+      <div style="font-size:26px;font-weight:800;color:var(--grn);margin-top:4px">R$ ${valor}</div>
+    </div>
+    <button class="btn btn-grn" data-pix-confirm="${entregaId}">Confirmar pagamento</button>
+    <button class="btn btn-ghost" id="btn-pix-cancel">Cancelar</button>`}
+  </div></div>`;
+}
+
+// ─── HELPERS ───────────────────────────────────────────────────────────────────
+function hdr(titulo, back) {
+  return `<div class="hdr"><button style="background:none;border:none;color:var(--mut);cursor:pointer;font-size:22px;padding:0;line-height:1" data-back="${back}">‹</button><div class="bold" style="font-size:15px;flex:1;text-align:center">${titulo}</div><div style="width:22px"></div></div>`;
+}
+function campo(lbl, id, type, ph) {
+  return `<div class="field"><span class="lbl">${lbl}</span><input id="${id}" type="${type}" placeholder="${ph}" autocomplete="off"></div>`;
+}
+function formLogin(tipo) {
+  const pfx = tipo === "rest" ? "lr" : "lm";
+  return `
+  <div class="bold" style="font-size:16px;margin-bottom:4px">Entrar</div>
+  <div class="muted small" style="margin-bottom:14px">Use seu email e senha cadastrados</div>
+  ${campo("Email", pfx+"-email","email","seu@email.com")}
+  ${campo("Senha", pfx+"-senha","password","Sua senha")}
+  <button class="btn btn-acc" id="btn-login-${tipo}">Entrar</button>
+  ${S.erro ? `<div style="background:#EF444422;color:#EF4444;border-radius:8px;padding:10px;margin-top:8px;font-size:13px">${S.erro}</div>` : ""}`;
+}
+
+// ─── BIND ──────────────────────────────────────────────────────────────────────
+function bindAll() {
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+  const onAll = (sel, fn) => document.querySelectorAll(sel).forEach(el => el.addEventListener("click", fn));
+
+  document.querySelectorAll("[data-back]").forEach(el => el.addEventListener("click", () => { set({ tela: el.dataset.back, erro: null }); }));
+  on("go-rest", () => set({ tela: "login_rest", erro: null }));
+  on("go-moto", () => set({ tela: "login_moto", erro: null }));
+  on("go-cad-rest", () => set({ tela: "cadastro_rest", erro: null }));
+  on("go-cad-moto", () => set({ tela: "cadastro_moto", erro: null }));
+  on("btn-sair", () => {
+    localStorage.removeItem("mf_token"); localStorage.removeItem("mf_user"); localStorage.removeItem("mf_tipo");
+    set({ token: null, user: null, tipo: null, tela: "inicio", corridaAtiva: null, corridaStep: null });
+  });
+
+  on("btn-instalar", () => { if (S.deferredPrompt) { S.deferredPrompt.prompt(); S.deferredPrompt = null; set({ instalarBanner: false }); } });
+
+  on("btn-login-rest", async () => {
+    const email = document.getElementById("lr-email")?.value;
+    const senha = document.getElementById("lr-senha")?.value;
+    if (!email || !senha) { set({ erro: "Preencha email e senha" }); return; }
+    set({ loading: true, erro: null }, true);
+    try {
+      const data = await api("POST", "/restaurante/login", { email, senha });
+      localStorage.setItem("mf_token", data.token);
+      localStorage.setItem("mf_user", JSON.stringify(data));
+      localStorage.setItem("mf_tipo", "restaurante");
+      conectarWS(data.cidade);
+      set({ token: data.token, user: data, tipo: "restaurante", tela: "painel_rest", loading: false, erro: null });
+    } catch (e) { set({ loading: false, erro: e.message }); }
+  });
+
+  on("btn-login-moto", async () => {
+    const email = document.getElementById("lm-email")?.value;
+    const senha = document.getElementById("lm-senha")?.value;
+    if (!email || !senha) { set({ erro: "Preencha email e senha" }); return; }
+    set({ loading: true, erro: null }, true);
+    try {
+      const data = await api("POST", "/motoboy/login", { email, senha });
+      localStorage.setItem("mf_token", data.token);
+      localStorage.setItem("mf_user", JSON.stringify(data));
+      localStorage.setItem("mf_tipo", "motoboy");
+      conectarWS(data.cidade);
+      set({ token: data.token, user: data, tipo: "motoboy", tela: "painel_moto", loading: false, erro: null });
+    } catch (e) { set({ loading: false, erro: e.message }); }
+  });
+
+  on("btn-cad-rest-ok", async () => {
+    const nome = document.getElementById("cr-nome")?.value;
+    const email = document.getElementById("cr-email")?.value;
+    const senha = document.getElementById("cr-senha")?.value;
+    const telefone = document.getElementById("cr-tel")?.value;
+    const endereco = document.getElementById("cr-end")?.value;
+    const cidade = document.getElementById("cr-cid")?.value;
+    const pix = document.getElementById("cr-pix")?.value;
+    const categoria = document.getElementById("cr-cat")?.value;
+    if (!nome||!email||!senha||!cidade) { set({ erro: "Preencha todos os campos obrigatorios" }); return; }
+    set({ loading: true, erro: null }, true);
+    try {
+      const data = await api("POST", "/restaurante/cadastro", { nome, email, senha, telefone, endereco, cidade, pix, categoria });
+      localStorage.setItem("mf_token", data.token);
+      localStorage.setItem("mf_user", JSON.stringify(data));
+      localStorage.setItem("mf_tipo", "restaurante");
+      conectarWS(cidade);
+      set({ token: data.token, user: data, tipo: "restaurante", tela: "painel_rest", loading: false, erro: null });
+      toast("Conta criada! Ative seu plano para comecar.");
+    } catch (e) { set({ loading: false, erro: e.message }); }
+  });
+
+  on("btn-cad-moto-ok", async () => {
+    const nome = document.getElementById("cm-nome")?.value;
+    const email = document.getElementById("cm-email")?.value;
+    const senha = document.getElementById("cm-senha")?.value;
+    const telefone = document.getElementById("cm-tel")?.value;
+    const pix = document.getElementById("cm-pix")?.value;
+    const placa = document.getElementById("cm-placa")?.value;
+    const cidade = document.getElementById("cm-cid")?.value;
+    if (!nome||!email||!senha||!pix||!cidade) { set({ erro: "Preencha todos os campos obrigatorios" }); return; }
+    set({ loading: true, erro: null }, true);
+    try {
+      const data = await api("POST", "/motoboy/cadastro", { nome, email, senha, telefone, pix, placa, cidade });
+      localStorage.setItem("mf_token", data.token);
+      localStorage.setItem("mf_user", JSON.stringify(data));
+      localStorage.setItem("mf_tipo", "motoboy");
+      conectarWS(cidade);
+      set({ token: data.token, user: data, tipo: "motoboy", tela: "painel_moto", loading: false, erro: null });
+      toast("Cadastro realizado! Boas corridas.");
+    } catch (e) { set({ loading: false, erro: e.message }); }
+  });
+
+  document.querySelectorAll("[data-pg-rest]").forEach(el => el.addEventListener("click", () => set({ pagRest: el.dataset.pgRest })));
+  document.querySelectorAll("[data-pg-moto]").forEach(el => el.addEventListener("click", () => set({ pagMoto: el.dataset.pgMoto })));
+
+  on("btn-calc", () => {
+    const km = parseFloat(document.getElementById("ne-dist")?.value) || 2;
+    const t = calcTarifa(km);
+    set({ calcPreview: { tarifa: t.toFixed(2), moto: (t*0.8).toFixed(2), app: (t*0.2).toFixed(2) } });
+  });
+
+  on("btn-add-entrega", async () => {
+    const cliente_nome = document.getElementById("ne-cli")?.value;
+    const cliente_endereco = document.getElementById("ne-end")?.value;
+    const distancia_km = parseFloat(document.getElementById("ne-dist")?.value) || 2;
+    const valor_pedido = parseFloat(document.getElementById("ne-val")?.value) || 30;
+    if (!cliente_nome || !cliente_endereco) { toast("Preencha todos os campos","#EF4444"); return; }
+    set({ loading: true }, true);
+    try {
+      await api("POST", "/entrega", { cliente_nome, cliente_endereco, cliente_lat: -23.55 + Math.random()*0.04, cliente_lng: -46.63 + Math.random()*0.04, valor_pedido, distancia_km });
+      toast("Entrega publicada para motoboys!");
+      set({ loading: false, pagRest: "pedidos", calcPreview: null });
+    } catch (e) { set({ loading: false }); toast(e.message, "#EF4444"); }
+  });
+
+  on("btn-ativar-plano", async () => {
+    try {
+      await api("POST", "/restaurante/ativar-plano", {});
+      const user = { ...S.user, plano_ativo: true };
+      localStorage.setItem("mf_user", JSON.stringify(user));
+      set({ user });
+      toast("Plano ativado!");
+    } catch (e) { toast(e.message, "#EF4444"); }
+  });
+
+  document.querySelectorAll("[data-aceitar]").forEach(el => el.addEventListener("click", async () => {
+    const id = el.dataset.aceitar;
+    try {
+      const entrega = await api("POST", `/entrega/${id}/aceitar`, {});
+      const completa = S.entregas.find(e => e.id === id) || entrega;
+      set({ corridaAtiva: completa, corridaStep: "indo" });
+      ativarGPS();
+      toast("Corrida aceita! Va buscar o pedido.");
+    } catch (e) { toast(e.message, "#EF4444"); }
+  }));
+
+  on("btn-gps", () => ativarGPS());
+
+  on("btn-coletado", async () => {
+    try { await api("POST", `/entrega/${S.corridaAtiva.id}/status`, { status: "coletado" }); } catch {}
+    set({ corridaStep: "coletado" });
+    toast("Pedido coletado! Va ate o cliente.");
+  });
+
+  on("btn-entregue", async () => {
+    try { await api("POST", `/entrega/${S.corridaAtiva.id}/status`, { status: "entregue" }); } catch {}
+    if (S.watchId) navigator.geolocation.clearWatch(S.watchId);
+    const user = { ...S.user, corridas_total: (S.user.corridas_total || 0) + 1 };
+    localStorage.setItem("mf_user", JSON.stringify(user));
+    set({ corridaStep: "entregue", user });
+    toast("Entrega concluida! PIX a caminho.");
+  });
+
+  on("btn-nova-corrida", () => {
+    set({ corridaAtiva: null, corridaStep: null, pagMoto: "corridas" });
+    if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+  });
+
+  document.querySelectorAll("[data-pix]").forEach(el => el.addEventListener("click", () => {
+    const [entregaId, motoboyId, valor] = el.dataset.pix.split(",");
+    set({ pixModal: { entregaId, valor, nome: "Motoboy", chave: motoboyId, enviado: false } });
+  }));
+
+  document.querySelectorAll("[data-pix-confirm]").forEach(el => el.addEventListener("click", async () => {
+    try {
+      await api("POST", `/pix/pagar/${el.dataset.pixConfirm}`, {});
+      set({ pixModal: { ...S.pixModal, enviado: true } });
+    } catch (e) { toast(e.message, "#EF4444"); }
+  }));
+
+  on("btn-pix-ok", () => set({ pixModal: null }));
+  on("btn-pix-cancel", () => set({ pixModal: null }));
+
+  const overlay = document.getElementById("overlay");
+  if (overlay) overlay.addEventListener("click", e => { if (e.target === overlay) set({ pixModal: null }); });
+}
+
+// ─── RENDER FULL COM MODAL ─────────────────────────────────────────────────────
+const origRender = render;
+window.render = function() {
+  origRender();
+  const modal = buildPixModal();
+  if (modal) {
+    const div = document.createElement("div");
+    div.innerHTML = modal;
+    document.getElementById("app").appendChild(div.firstChild);
+    bindAll();
+  }
+};
+window.render = render;
+
+// ─── SERVICE WORKER ────────────────────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
+
+render();
+</script>
+</body>
+</html>
